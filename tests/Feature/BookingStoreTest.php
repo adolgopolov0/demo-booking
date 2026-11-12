@@ -12,6 +12,13 @@ class BookingStoreTest extends TestCase
     use RefreshDatabase;
     use SeedsDemoBooking;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->travelTo('2026-11-02 00:00:00');
+    }
+
     public function test_anna_stores_arbat_booking_in_moscow_office_time(): void
     {
         $this->seedDemo();
