@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\SeedsDemoBooking;
 use Tests\TestCase;
 
@@ -323,5 +324,45 @@ class BookingStoreTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonPath('error', 'Нельзя бронировать прошедшую дату');
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    #[DataProvider('storeValidationMessages')]
+    public function test_store_field_error_is_russian(array $overrides, string $field, string $message): void
+    {
+        $this->seedDemo();
+
+        $payload = array_replace([
+            'room_id' => $this->room('Арбат')->id,
+            'title' => 'Планёрка',
+            'starts_at' => '2026-11-02T10:00:00+03:00',
+            'ends_at' => '2026-11-02T11:00:00+03:00',
+        ], $overrides);
+
+        $response = $this->withToken('anna-token')->postJson('/api/bookings', $payload);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors([$field => $message]);
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: string, 2: string}>
+     */
+    public static function storeValidationMessages(): array
+    {
+        return [
+            'room required' => [['room_id' => null], 'room_id', 'Укажите комнату.'],
+            'room integer' => [['room_id' => 'комната'], 'room_id', 'Комната должна быть числом.'],
+            'room exists' => [['room_id' => 999999], 'room_id', 'Выбранная комната не существует.'],
+            'title required' => [['title' => null], 'title', 'Укажите название.'],
+            'title string' => [['title' => ['список']], 'title', 'Название должно быть строкой.'],
+            'starts required' => [['starts_at' => null], 'starts_at', 'Укажите время начала.'],
+            'starts date' => [['starts_at' => 'не дата'], 'starts_at', 'Время начала указано неверно.'],
+            'ends required' => [['ends_at' => null], 'ends_at', 'Укажите время окончания.'],
+            'ends date' => [['ends_at' => 'не дата'], 'ends_at', 'Время окончания указано неверно.'],
+            'ends after' => [['ends_at' => '2026-11-02T09:00:00+03:00'], 'ends_at', 'Время окончания должно быть позже начала.'],
+        ];
     }
 }

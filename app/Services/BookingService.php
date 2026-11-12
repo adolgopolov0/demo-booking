@@ -31,26 +31,6 @@ class BookingService
         $startsAt = Carbon::parse($data['starts_at'])->timezone($room->office->timezone);
         $endsAt = Carbon::parse($data['ends_at'])->timezone($room->office->timezone);
 
-        $today = now()->timezone($startsAt->timezoneName)->toDateString();
-        if ($startsAt->toDateString() < $today) {
-            $this->reject('Нельзя бронировать прошедшую дату');
-        }
-
-        $opens = $startsAt->copy()->setTime(9, 0);
-        $closes = $startsAt->copy()->setTime(20, 0);
-        if (! $startsAt->isSameDay($endsAt) || $startsAt->lt($opens) || $endsAt->gt($closes)) {
-            $this->reject('Нерабочее время');
-        }
-
-        $minutes = (int) round($startsAt->diffInMinutes($endsAt, true));
-        if ($minutes < 15 || $minutes > 240) {
-            $this->reject('Длительность должна быть от 15 минут до 4 часов');
-        }
-
-        if (! $this->isQuarterHour($startsAt) || ! $this->isQuarterHour($endsAt)) {
-            $this->reject('Время должно быть кратно 15 минутам');
-        }
-
         $startsUtc = $startsAt->copy()->utc();
         $endsUtc = $endsAt->copy()->utc();
 
@@ -94,11 +74,6 @@ class BookingService
             'time' => $booking->starts_at.' – '.$booking->ends_at,
             'author' => $booking->user->name,
         ]);
-    }
-
-    private function isQuarterHour(Carbon $time): bool
-    {
-        return $time->second === 0 && $time->micro === 0 && $time->minute % 15 === 0;
     }
 
     private function reject(string $message): never
