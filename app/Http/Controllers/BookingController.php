@@ -2,61 +2,53 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DestroyBookingRequest;
+use App\Http\Requests\IndexBookingsRequest;
+use App\Http\Requests\StoreBookingRequest;
+use App\Http\Requests\TodayBookingsRequest;
 use App\Models\Booking;
 use App\Models\Room;
-use Carbon\Carbon;
+use App\Models\User;
+use App\Services\BookingService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 
 class BookingController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(private BookingService $bookings) {}
+
+    public function index(IndexBookingsRequest $request): LengthAwarePaginator
     {
-        return Booking::where('user_id', $request->user()->id)
-            ->orderByRaw('starts_at DESC')
-            ->paginate(20);
+        return $this->bookings->list($this->user($request));
     }
 
-    public function store(Request $request)
+    public function store(StoreBookingRequest $request): Booking
     {
-        $conflict = DB::select("SELECT id FROM bookings
-            WHERE room_id = {$request->room_id}
-            AND starts_at <= '{$request->ends_at}'
-            AND ends_at >= '{$request->starts_at}'");
-
-        if ($conflict) {
-            return response()->json(['error' => 'Комната занята'], 409);
-        }
-
-        $start = Carbon::parse($request->starts_at);
-        if ($start->hour < 9 || $start->hour >= 20) {
-            return response()->json(['error' => 'Нерабочее время'], 422);
-        }
-
-        $booking = Booking::create($request->all());
-
-        Log::withContext(['booking_id' => $booking->id]);
-        Log::channel('bookings')->info('Booking created');
-
-        return $booking;
+        return $this->bookings->store($this->user($request), $request->validated());
     }
 
-    public function destroy($id)
+    public function destroy(DestroyBookingRequest $request, Booking $booking): Response
     {
-        Booking::findOrFail($id)->delete();
+        $this->bookings->delete($this->user($request), $booking);
 
         return response()->noContent();
     }
 
-    public function today(Room $room)
+    public function today(TodayBookingsRequest $request, Room $room): Collection
     {
-        return $room->bookings()
-            ->whereDate('starts_at', today())
-            ->get()
-            ->map(fn ($b) => [
-                'time' => $b->starts_at . ' – ' . $b->ends_at,
-                'author' => $b->user->name,
-            ]);
+        return $this->bookings->today($room);
+    }
+
+    private function user(Request $request): User
+    {
+        $user = $request->user();
+
+        if (! $user instanceof User) {
+            abort(403);
+        }
+
+        return $user;
     }
 }

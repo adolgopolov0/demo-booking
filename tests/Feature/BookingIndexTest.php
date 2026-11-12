@@ -31,7 +31,7 @@ class BookingIndexTest extends TestCase
 
     public function test_requires_authentication(): void
     {
-        $this->getJson('/api/bookings')->assertUnauthorized();
+        $this->getJson('/api/bookings')->assertForbidden();
     }
 
     public function test_anna_sees_only_her_bookings(): void
