@@ -1,0 +1,218 @@
+openapi: 3.0.3
+info:
+  title: Бронирование переговорных
+  version: 1.0.0
+  description: API бронирования комнат. Запросы к методам ниже требуют заголовок Authorization Bearer.
+servers:
+  - url: http://localhost:8000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        room_id:
+          type: integer
+        user_id:
+          type: integer
+        title:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    BookingPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                nullable: true
+              label:
+                type: string
+              active:
+                type: boolean
+        current_page:
+          type: integer
+        per_page:
+          type: integer
+          example: 20
+        total:
+          type: integer
+        from:
+          type: integer
+          nullable: true
+        to:
+          type: integer
+          nullable: true
+        last_page:
+          type: integer
+    StoreBooking:
+      type: object
+      required:
+        - room_id
+        - title
+        - starts_at
+        - ends_at
+      properties:
+        room_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Планёрка
+        starts_at:
+          type: string
+          format: date-time
+          example: '2026-11-02T10:00:00+03:00'
+        ends_at:
+          type: string
+          format: date-time
+          example: '2026-11-02T11:00:00+03:00'
+    TodayBooking:
+      type: object
+      properties:
+        time:
+          type: string
+        author:
+          type: string
+    BusinessError:
+      type: object
+      properties:
+        error:
+          type: string
+          enum:
+            - Комната занята
+            - Нерабочее время
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+  responses:
+    Forbidden:
+      description: Нет токена или нет права на это действие
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Message'
+    NotFound:
+      description: Запись не найдена
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Message'
+security:
+  - bearerAuth: []
+paths:
+  /api/bookings:
+    get:
+      summary: Мои брони
+      description: Брони текущего пользователя, по 20 на страницу, starts_at по убыванию.
+      responses:
+        '200':
+          description: Страница броней
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: Создать бронь
+      description: Время приходит в ISO 8601 с любым смещением и сохраняется в часовом поясе офиса комнаты. Владелец берётся из токена.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBooking'
+      responses:
+        '200':
+          description: Созданная бронь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Комната занята, нерабочее время или ошибка формы
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/BusinessError'
+                  - $ref: '#/components/schemas/ValidationError'
+  /api/bookings/{booking}:
+    delete:
+      summary: Отменить бронь
+      parameters:
+        - name: booking
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Бронь удалена
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/rooms/{room}/bookings/today:
+    get:
+      summary: Брони комнаты на сегодня
+      parameters:
+        - name: room
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Брони этого дня
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TodayBooking'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
