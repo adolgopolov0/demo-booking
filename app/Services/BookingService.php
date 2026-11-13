@@ -70,10 +70,18 @@ class BookingService
      */
     public function today(Room $room): Collection
     {
-        return $this->bookings->forRoomOnDate($room, today())->map(fn (Booking $booking): array => [
-            'time' => $booking->starts_at.' – '.$booking->ends_at,
-            'author' => $booking->user->name,
-        ]);
+        $room->loadMissing('office');
+        $timezone = $room->office->timezone;
+
+        return $this->bookings->forRoomOnDate($room, today())->map(function (Booking $booking) use ($timezone): array {
+            $startsAt = $booking->starts_at->copy()->timezone($timezone);
+            $endsAt = $booking->ends_at->copy()->timezone($timezone);
+
+            return [
+                'time' => $startsAt->format('Y-m-d H:i:s').' – '.$endsAt->format('Y-m-d H:i:s'),
+                'author' => $booking->user->name,
+            ];
+        });
     }
 
     private function reject(string $message): never

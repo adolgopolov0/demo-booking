@@ -97,6 +97,8 @@ components:
       properties:
         time:
           type: string
+          description: Местное время офиса комнаты
+          example: '2026-11-13 09:00:00 – 2026-11-13 10:00:00'
         author:
           type: string
     BusinessError:

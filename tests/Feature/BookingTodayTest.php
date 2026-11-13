@@ -34,9 +34,14 @@ class BookingTodayTest extends TestCase
             ->assertOk();
 
         $response->assertJsonCount(2);
-        $response->assertJsonFragment(['author' => 'Анна']);
-        $response->assertJsonFragment(['author' => 'Борис']);
-        $this->assertArrayHasKey('time', $response->json(0));
+        $response->assertJsonFragment([
+            'time' => '2026-11-12 13:00:00 – 2026-11-12 14:00:00',
+            'author' => 'Анна',
+        ]);
+        $response->assertJsonFragment([
+            'time' => '2026-11-12 15:00:00 – 2026-11-12 16:00:00',
+            'author' => 'Борис',
+        ]);
     }
 
     public function test_yesterday_booking_is_excluded_from_today(): void
